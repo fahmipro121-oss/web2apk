@@ -49,7 +49,8 @@ jobs:
       - name: Download & set icon
         if: ${{ github.event.inputs.icon_url != '' }}
         run: |
-          curl -L "${{ github.event.inputs.icon_url }}" -o assets/icon-source.png
+          mkdir -p assets
+          curl -L -f "${{ github.event.inputs.icon_url }}" -o assets/icon-source.png
           node scripts/set-icon.js
 
       - name: Sync Capacitor Android
