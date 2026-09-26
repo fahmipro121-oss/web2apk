@@ -49,8 +49,7 @@ jobs:
       - name: Download & set icon
         if: ${{ github.event.inputs.icon_url != '' }}
         run: |
-          mkdir -p assets
-          curl -L -f "${{ github.event.inputs.icon_url }}" -o assets/icon-source.png
+          curl -L "${{ github.event.inputs.icon_url }}" -o assets/icon-source.png
           node scripts/set-icon.js
 
       - name: Sync Capacitor Android
@@ -77,7 +76,6 @@ jobs:
           path: ${{ env.APK_PATH }}
 
       - name: Buat GitHub Release + upload APK
-        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_id }}
