@@ -77,6 +77,7 @@ jobs:
           path: ${{ env.APK_PATH }}
 
       - name: Buat GitHub Release + upload APK
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_id }}
