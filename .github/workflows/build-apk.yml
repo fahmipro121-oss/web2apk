@@ -1,0 +1,85 @@
+name: Build Web2APK (by KAIZEN)
+
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: "URL website yang mau dijadikan APK"
+        required: true
+      app_name:
+        description: "Nama aplikasi"
+        required: true
+      icon_url:
+        description: "URL gambar icon (PNG/JPG, disarankan 1:1)"
+        required: false
+        default: ""
+      package_id:
+        description: "Package ID (contoh: com.kaizen.myapp)"
+        required: false
+        default: "com.kaizen.web2apk"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout template
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Configure Capacitor (URL + nama app)
+        run: |
+          node scripts/configure.js \
+            --url "${{ github.event.inputs.site_url }}" \
+            --name "${{ github.event.inputs.app_name }}" \
+            --package "${{ github.event.inputs.package_id }}"
+
+      - name: Download & set icon
+        if: ${{ github.event.inputs.icon_url != '' }}
+        run: |
+          curl -L "${{ github.event.inputs.icon_url }}" -o assets/icon-source.png
+          node scripts/set-icon.js
+
+      - name: Sync Capacitor Android
+        run: |
+          npx cap sync android
+
+      - name: Build APK (debug)
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Rename APK
+        run: |
+          SAFE_NAME=$(echo "${{ github.event.inputs.app_name }}" | tr -cd '[:alnum:]_-')
+          mkdir -p output
+          cp android/app/build/outputs/apk/debug/app-debug.apk "output/${SAFE_NAME}-KAIZEN.apk"
+          echo "APK_PATH=output/${SAFE_NAME}-KAIZEN.apk" >> $GITHUB_ENV
+
+      - name: Upload APK sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web2apk-build
+          path: ${{ env.APK_PATH }}
+
+      - name: Buat GitHub Release + upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_id }}
+          name: "Web2APK by KAIZEN - ${{ github.event.inputs.app_name }}"
+          files: ${{ env.APK_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

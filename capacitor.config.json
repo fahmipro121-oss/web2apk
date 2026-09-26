@@ -1,0 +1,10 @@
+{
+  "appId": "com.kaizen.web2apk",
+  "appName": "Web2APK",
+  "webDir": "www",
+  "server": {
+    "url": "https://example.com",
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}
