@@ -1,0 +1,62 @@
+name: Build Flutter APK (by KAIZEN)
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_path:
+        description: "Path zip project di repo (contoh: flutter-jobs/xxxx.zip)"
+        required: true
+      app_name:
+        description: "Nama aplikasi"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Extract project
+        run: |
+          mkdir -p flutter_project
+          unzip -o "${{ github.event.inputs.job_path }}" -d flutter_project
+          if [ ! -f flutter_project/pubspec.yaml ]; then
+            SUBDIR=$(find flutter_project -mindepth 1 -maxdepth 1 -type d | head -n1)
+            if [ -n "$SUBDIR" ]; then
+              mv "$SUBDIR"/* flutter_project/ 2>/dev/null || true
+            fi
+          fi
+
+      - name: Pastikan pubspec.yaml ada
+        run: |
+          if [ ! -f flutter_project/pubspec.yaml ]; then
+            echo "ERROR: pubspec.yaml tidak ditemukan di root project zip!"
+            exit 1
+          fi
+
+      - name: Flutter pub get
+        working-directory: flutter_project
+        run: flutter pub get
+
+      - name: Build APK (release)
+        working-directory: flutter_project
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: |
+          SAFE_NAME=$(echo "${{ github.event.inputs.app_name }}" | tr -cd '[:alnum:]_-')
+          mkdir -p output
+          cp flutter_project/build/app/outputs/flutter-apk/app-release.apk "output/${SAFE_NAME}-KAIZEN.apk"
+          echo "APK_PATH=output/${SAFE_NAME}-KAIZEN.apk" >> $GITHUB_ENV
+
+      - name: Upload APK sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-apk-build
+          path: ${{ env.APK_PATH }}

@@ -1,83 +1,76 @@
-# Web2APK Bot — by KAIZEN
+# Web2APK + Flutter2APK Bot — by KAIZEN
 
-Bot Telegram yang mengubah URL website jadi file APK, build otomatis lewat
-GitHub Actions (gratis, jalan di cloud — cocok dipakai dari Termux tanpa PC).
+Bot Telegram dengan menu tombol, 2 fitur:
+1. **Web ke APK** — bungkus URL website jadi APK (WebView/Capacitor)
+2. **Flutter ke APK** — kirim file .zip project Flutter, di-build jadi APK
 
-## Struktur
+Build APK sepenuhnya jalan di GitHub Actions (gratis), bukan di HP — cocok buat Termux.
 
+## Isi folder ini
 ```
 web2apk-kaizen/
-├── .github/workflows/build-apk.yml   # workflow build APK
-├── scripts/configure.js              # isi URL & nama app ke config
-├── scripts/set-icon.js               # pasang icon custom
-├── capacitor.config.json             # config Capacitor
+├── .github/workflows/build-apk.yml       # workflow build APK dari URL
+├── .github/workflows/build-flutter.yml   # workflow build APK dari project Flutter
+├── scripts/configure.js                  # isi URL & nama app + update strings.xml
+├── scripts/set-icon.js                   # pasang icon custom
+├── flutter-jobs/.gitkeep                 # folder tempat upload sementara project flutter
+├── capacitor.config.json
 ├── package.json
-├── www/index.html                    # fallback offline page
-└── bot.py                            # bot Telegram
+├── www/index.html
+└── bot.py                                # bot Telegram (JANGAN di-push ke repo publik!)
 ```
 
-## Setup (urutan)
+## CARA PAKAI DI TERMUX (tinggal unzip)
 
-### 1. Buat repo GitHub
-- Buat repo baru, misal `web2apk-kaizen`
-- Push semua isi folder ini ke repo tsb (branch `main`)
-- Jalankan sekali di lokal/Termux untuk generate project Android:
-  ```
-  npm install
-  npm install -g @capacitor/cli
-  npx cap add android
-  git add . && git commit -m "init android project" && git push
-  ```
-  (folder `android/` wajib ada di repo supaya workflow bisa build)
-
-### 2. Buat Personal Access Token (PAT)
-- GitHub → Settings → Developer settings → Personal access tokens → Fine-grained (atau classic)
-- Scope minimal: `repo`, `workflow`
-- Simpan token-nya (tidak akan muncul lagi)
-
-### 3. Buat bot Telegram
-- Chat @BotFather di Telegram → `/newbot` → catat token bot
-
-### 4. Setup di Termux
+### 1. Extract file ini ke folder project kamu
+```bash
+cd ~/storage/downloads
+unzip web2apk-kaizen.zip -d ~/
+cd ~/web2apk-kaizen
 ```
-pkg install python git -y
+(Kalau folder project lama kamu `~/web2apk` sudah ada dan sudah ke-link ke repo GitHub,
+cukup copy file-file baru ini ke situ, jangan bikin folder git baru:)
+```bash
+cp -r ~/web2apk-kaizen/. ~/web2apk/
+cd ~/web2apk
+```
+
+### 2. Isi token di bot.py (kalau belum)
+Buka `bot.py`, cek bagian atas:
+```python
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "...")
+GITHUB_TOKEN   = os.getenv("GITHUB_TOKEN", "...")
+GITHUB_OWNER   = os.getenv("GITHUB_OWNER", "...")
+GITHUB_REPO    = os.getenv("GITHUB_REPO", "...")
+```
+
+### 3. Push file workflow & script ke GitHub (bot.py TIDAK ikut push)
+```bash
+echo "bot.py" >> .gitignore
+git rm --cached bot.py 2>/dev/null
+git add .
+git commit -m "update: menu tombol + fitur flutter to apk"
+git push
+```
+
+### 4. Jalankan bot
+```bash
 pip install python-telegram-bot requests --break-system-packages
-```
-
-### 5. Isi konfigurasi
-Buka `bot.py`, isi (atau set sebagai environment variable):
-```
-TELEGRAM_TOKEN = "token bot dari BotFather"
-GITHUB_TOKEN   = "PAT dari langkah 2"
-GITHUB_OWNER   = "username github kamu"
-GITHUB_REPO    = "web2apk-kaizen"
-```
-
-### 6. Jalankan bot
-```
 python bot.py
 ```
-Biar tetap hidup walau app ditutup, pakai `tmux`:
-```
-pkg install tmux
-tmux new -s bot
-python bot.py
-# tekan Ctrl+B lalu D untuk keluar tanpa mematikan bot
-```
 
-## Alur pemakaian bot
-1. `/start` → bot minta URL website
-2. Kirim URL → bot minta nama aplikasi
-3. Kirim nama app → bot minta icon (atau `/skip`)
-4. Bot trigger GitHub Actions, polling status build
-5. Kalau sukses, bot kirim file `.apk` langsung ke chat
+### 5. Pakai di Telegram
+- `/start` → muncul menu tombol:
+  - **🔨 Web ke APK** → kirim URL → nama app → icon → APK jadi
+  - **🐦 Flutter ke APK** → kirim nama app → kirim file .zip project Flutter (harus ada
+    `pubspec.yaml` di root, maks ±20MB karena batas Telegram Bot API standar) → APK jadi
+  - **📊 Status Bot** → cek status singkat
+
+## Setting repo GitHub yang wajib
+Settings → Actions → General → **Workflow permissions** → pilih **Read and write permissions**
+(supaya Release/upload berjalan lancar).
 
 ## Catatan
-- Build APK jalan sepenuhnya di GitHub Actions (gratis untuk repo publik/limit
-  bulanan untuk privat) — bukan di HP, jadi ringan buat Termux.
-- Kalau dulu kamu dapat error `404 Not Found` saat trigger workflow, biasanya karena:
-  - file `build-apk.yml` belum ke-push ke branch `main`
-  - nama file workflow di `bot.py` (`WORKFLOW_FILE`) tidak cocok
-  - PAT tidak punya scope `workflow`
-- APK yang dihasilkan masih **debug build** (belum ditandatangani untuk rilis
-  Play Store). Untuk rilis resmi perlu tambah step signing dengan keystore.
+- APK masih **debug/release build tanpa signing key resmi** — belum siap upload ke Play Store.
+- Project Flutter yang di-upload otomatis dihapus dari repo GitHub setelah build selesai (cleanup).
+- Kalau file Flutter kamu >20MB, perlu setup Local Bot API Server sendiri (di luar cakupan ini).
